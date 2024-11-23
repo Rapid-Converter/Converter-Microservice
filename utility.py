@@ -4,7 +4,6 @@ import os
 def utility(input_path, output_path):
     try:
         print(f"Converting {input_path} to {output_path}")
-        # Call LibreOffice to perform the conversion
         subprocess.run(
             [
                 'soffice',
@@ -18,7 +17,6 @@ def utility(input_path, output_path):
             stderr=subprocess.PIPE
         )
         
-        # Ensure the output file exists
         if not os.path.exists(output_path):
             raise RuntimeError(f"Conversion failed: Output file not found at {output_path}")
         

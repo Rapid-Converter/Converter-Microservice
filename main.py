@@ -12,28 +12,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Add CORS middleware before defining any endpoints
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development; restrict in production
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers, including custom ones
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
-# Define custom exception for Encryption Service errors
 class EncryptionServiceError(Exception):
     def __init__(self, message: str):
         self.message = message
 
-# Retrieve OUTPUT_DIR from environment variable or default to './files'
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "./files")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Retrieve ENCRYPTION_SERVICE_URL from environment variable or default
 ENCRYPTION_SERVICE_URL = os.getenv("ENCRYPTION_SERVICE_URL", "http://encryption-service:8001/encrypt")
 
-# Mount the files directory to serve generated PDFs
 app.mount("/files", StaticFiles(directory=OUTPUT_DIR), name="files")
 
 @app.post("/convert")
@@ -42,37 +37,30 @@ async def convert(
     password: str = Form(None),
     file: UploadFile = File(...)
 ):
-    # Validate file type
     if not file.filename.endswith(".docx"):
         raise HTTPException(status_code=400, detail="Invalid file format. Only .docx files are allowed.")
     
-    # Create a temporary directory for handling the .docx file
     temp_dir = tempfile.mkdtemp()
     filename = secure_filename(file.filename)
 
     try:
-        # Save the uploaded .docx file in the temporary directory
         temp_input_path = os.path.join(temp_dir, filename)
         with open(temp_input_path, "wb") as temp_file:
             temp_file.write(await file.read())
         
-        # Determine the output path in the OUTPUT_DIR for the converted .pdf
         pdf_filename = os.path.splitext(filename)[0] + ".pdf"
         output_path = os.path.join(OUTPUT_DIR, pdf_filename)
 
-        # Perform the conversion using ThreadPoolExecutor
         with ThreadPoolExecutor() as executor:
             executor.submit(utility, temp_input_path, output_path).result()
         
         print("Converted file stored at:", output_path)
 
-        # If encryption is requested, send the PDF to Microservice 2
         if encryption:
             if not password:
                 raise HTTPException(status_code=400, detail="Password is required for encryption.")
             
             try:
-                # Send the PDF to Microservice 2 and save the encrypted file locally
                 encrypted_output_path = await send_to_encryption_service(output_path, password)
                 return FileResponse(
                     encrypted_output_path,
@@ -80,9 +68,7 @@ async def convert(
                     filename=os.path.basename(encrypted_output_path)
                 )
             except EncryptionServiceError as ese:
-                # Encryption failed; proceed to send unencrypted PDF with message
                 print(f"Encryption failed: {ese.message}")
-                # Define custom headers to inform the frontend about the failure
                 headers = {
                     "X-Encryption-Failed": "true",
                     "X-Encryption-Message": ese.message
@@ -94,7 +80,6 @@ async def convert(
                     headers=headers
                 )
         
-        # If no encryption, return the converted PDF
         return FileResponse(
             output_path,
             media_type="application/pdf",
@@ -104,7 +89,6 @@ async def convert(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
     finally:
-        # Clean up the temporary directory
         shutil.rmtree(temp_dir)
 
 async def send_to_encryption_service(file_path: str, password: str) -> str:
@@ -119,7 +103,6 @@ async def send_to_encryption_service(file_path: str, password: str) -> str:
                 )
                 response.raise_for_status()
 
-        # Save the encrypted PDF received from Microservice 2
         encrypted_filename = "encrypted_" + os.path.basename(file_path)
         encrypted_output_path = os.path.join(OUTPUT_DIR, encrypted_filename)
         with open(encrypted_output_path, "wb") as encrypted_file:
@@ -137,9 +120,6 @@ async def send_to_encryption_service(file_path: str, password: str) -> str:
 
 @app.get("/list-pdfs")
 async def list_pdfs():
-    """
-    List all generated PDFs in the files directory.
-    """
     try:
         if not os.path.exists(OUTPUT_DIR):
             return JSONResponse(content={"pdfs": []}, status_code=200)
