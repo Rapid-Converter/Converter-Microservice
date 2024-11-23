@@ -30,10 +30,10 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t udbe/thapartimetable-engine:${{ env.VERSION }} .
-          docker tag udbe/thapartimetable-engine:${{ env.VERSION }} udbe/thapartimetable-engine:latest
+          docker build -t akshat315/converter-service:${{ env.VERSION }} .
+          docker tag akshat315/converter-service:${{ env.VERSION }} akshat315/converter-service:latest
 
       - name: Push Docker image
         run: |
-          docker push udbe/thapartimetable-engine:${{ env.VERSION }}
-          docker push udbe/thapartimetable-engine:latest
+          docker push akshat315/converter-service:${{ env.VERSION }}
+          docker push akshat315/converter-service:latest
